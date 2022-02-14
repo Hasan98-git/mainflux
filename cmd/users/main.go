@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/mainflux/mainflux/internal/email"
+	"github.com/mainflux/mainflux/pkg/errors"
 	"github.com/mainflux/mainflux/pkg/uuid"
 	"github.com/mainflux/mainflux/users"
 	"github.com/mainflux/mainflux/users/bcrypt"
@@ -58,7 +59,6 @@ const (
 	defEmailPort        = "25"
 	defEmailUsername    = "root"
 	defEmailPassword    = ""
-	defEmailSecret      = ""
 	defEmailFromAddress = ""
 	defEmailFromName    = ""
 	defEmailTemplate    = "email.tmpl"
@@ -99,7 +99,6 @@ const (
 	envEmailPort        = "MF_EMAIL_PORT"
 	envEmailUsername    = "MF_EMAIL_USERNAME"
 	envEmailPassword    = "MF_EMAIL_PASSWORD"
-	envEmailSecret      = "MF_EMAIL_SECRET"
 	envEmailFromAddress = "MF_EMAIL_FROM_ADDRESS"
 	envEmailFromName    = "MF_EMAIL_FROM_NAME"
 	envEmailLogLevel    = "MF_EMAIL_LOG_LEVEL"
@@ -213,7 +212,6 @@ func loadConfig() config {
 		Port:        mainflux.Env(envEmailPort, defEmailPort),
 		Username:    mainflux.Env(envEmailUsername, defEmailUsername),
 		Password:    mainflux.Env(envEmailPassword, defEmailPassword),
-		Secret:      mainflux.Env(envEmailSecret, defEmailSecret),
 		Template:    mainflux.Env(envEmailTemplate, defEmailTemplate),
 	}
 
@@ -344,7 +342,7 @@ func newService(db *sqlx.DB, tracer opentracing.Tracer, auth mainflux.AuthServic
 				os.Exit(1)
 			}
 			if !apr.GetAuthorized() {
-				logger.Error("failed to authorized the policy result related to MF_USERS_ALLOW_SELF_REGISTER: " + users.ErrAuthorization.Error())
+				logger.Error("failed to authorized the policy result related to MF_USERS_ALLOW_SELF_REGISTER: " + errors.ErrAuthorization.Error())
 				os.Exit(1)
 			}
 		}
@@ -381,7 +379,7 @@ func createAdmin(svc users.Service, userRepo users.UserRepository, c config, aut
 				return err
 			}
 			if !apr.GetAuthorized() {
-				return users.ErrAuthorization
+				return errors.ErrAuthorization
 			}
 		}
 		return nil
@@ -393,7 +391,7 @@ func createAdmin(svc users.Service, userRepo users.UserRepository, c config, aut
 		return err
 	}
 	if !apr.GetAuthorized() {
-		return users.ErrAuthorization
+		return errors.ErrAuthorization
 	}
 
 	// Create an admin
@@ -407,7 +405,7 @@ func createAdmin(svc users.Service, userRepo users.UserRepository, c config, aut
 		return err
 	}
 	if !apr.GetAuthorized() {
-		return users.ErrAuthorization
+		return errors.ErrAuthorization
 	}
 
 	return nil

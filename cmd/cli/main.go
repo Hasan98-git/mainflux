@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// API commands
-	versionCmd := cli.NewVersionCmd()
+	healthCmd := cli.NewHealthCmd()
 	usersCmd := cli.NewUsersCmd()
 	thingsCmd := cli.NewThingsCmd()
 	groupsCmd := cli.NewGroupsCmd()
@@ -50,9 +50,10 @@ func main() {
 	provisionCmd := cli.NewProvisionCmd()
 	bootstrapCmd := cli.NewBootstrapCmd()
 	certsCmd := cli.NewCertsCmd()
+	keysCmd := cli.NewKeysCmd()
 
 	// Root Commands
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(healthCmd)
 	rootCmd.AddCommand(usersCmd)
 	rootCmd.AddCommand(groupsCmd)
 	rootCmd.AddCommand(thingsCmd)
@@ -61,6 +62,7 @@ func main() {
 	rootCmd.AddCommand(provisionCmd)
 	rootCmd.AddCommand(bootstrapCmd)
 	rootCmd.AddCommand(certsCmd)
+	rootCmd.AddCommand(keysCmd)
 
 	// Root Flags
 	rootCmd.PersistentFlags().StringVarP(
@@ -68,7 +70,7 @@ func main() {
 		"auth-url",
 		"a",
 		sdkConf.AuthURL,
-		"Mainflux Auth URL",
+		"Auth service URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -76,7 +78,7 @@ func main() {
 		"bootstrap-url",
 		"b",
 		sdkConf.BootstrapURL,
-		"Mainflux Bootstrap URL",
+		"Bootstrap service URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -84,7 +86,7 @@ func main() {
 		"certs-url",
 		"e",
 		sdkConf.CertsURL,
-		"Mainflux Certs URL",
+		"Certs service URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -92,7 +94,7 @@ func main() {
 		"things-url",
 		"t",
 		sdkConf.ThingsURL,
-		"Mainflux Things URL",
+		"Things service URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -100,7 +102,7 @@ func main() {
 		"users-url",
 		"u",
 		sdkConf.UsersURL,
-		"Mainflux Users URL",
+		"Users service URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -108,7 +110,7 @@ func main() {
 		"http-url",
 		"p",
 		sdkConf.HTTPAdapterURL,
-		"Mainflux message content type",
+		"HTTP adapter URL",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -116,7 +118,7 @@ func main() {
 		"content-type",
 		"y",
 		msgContentType,
-		"Mainflux message content type",
+		"Message content type",
 	)
 
 	rootCmd.PersistentFlags().BoolVarP(
@@ -132,7 +134,7 @@ func main() {
 		"config",
 		"c",
 		cli.ConfigPath,
-		"Mainflux config path",
+		"Config path",
 	)
 
 	rootCmd.PersistentFlags().BoolVarP(
@@ -149,7 +151,7 @@ func main() {
 		"limit",
 		"l",
 		100,
-		"limit query parameter",
+		"Limit query parameter",
 	)
 
 	rootCmd.PersistentFlags().UintVarP(
@@ -157,7 +159,7 @@ func main() {
 		"offset",
 		"o",
 		0,
-		"offset query parameter",
+		"Offset query parameter",
 	)
 
 	rootCmd.PersistentFlags().StringVarP(
@@ -165,7 +167,7 @@ func main() {
 		"name",
 		"n",
 		"",
-		"name query parameter",
+		"Name query parameter",
 	)
 
 	if err := rootCmd.Execute(); err != nil {

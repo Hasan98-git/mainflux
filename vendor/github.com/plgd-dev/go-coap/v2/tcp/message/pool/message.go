@@ -6,32 +6,36 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/plgd-dev/go-coap/v2/message"
 	"github.com/plgd-dev/go-coap/v2/message/pool"
 	tcp "github.com/plgd-dev/go-coap/v2/tcp/message"
 )
 
-var (
-	messagePool sync.Pool
-)
-
 type Message struct {
-	*pool.Message
 
 	//local vars
 	rawData        []byte
 	rawMarshalData []byte
 
-	ctx        context.Context
+	ctx context.Context
+	*pool.Message
+
+	rawMaxSize uint16
+
 	isModified bool
 }
 
 // Reset clear message for next reuse
 func (r *Message) Reset() {
 	r.Message.Reset()
-	r.rawData = r.rawData[:0]
-	r.rawMarshalData = r.rawMarshalData[:0]
+	if cap(r.rawData) > int(r.rawMaxSize) {
+		r.rawData = make([]byte, 256)
+	}
+	if cap(r.rawMarshalData) > int(r.rawMaxSize) {
+		r.rawMarshalData = make([]byte, 256)
+	}
 	r.isModified = false
 }
 
@@ -44,7 +48,6 @@ func (r *Message) IsModified() bool {
 }
 
 func (r *Message) Unmarshal(data []byte) (int, error) {
-	r.Reset()
 	if len(r.rawData) < len(data) {
 		r.rawData = append(r.rawData, make([]byte, len(data)-len(r.rawData))...)
 	}
@@ -93,23 +96,38 @@ func (r *Message) Marshal() ([]byte, error) {
 	return r.rawMarshalData, nil
 }
 
+type Pool struct {
+	messagePool           sync.Pool
+	currentMessagesInPool int64
+	maxNumMessages        uint32
+	maxMessageBufferSize  uint16
+}
+
+func New(maxNumMessages uint32, maxMessageBufferSize uint16) *Pool {
+	return &Pool{
+		maxNumMessages:       maxNumMessages,
+		maxMessageBufferSize: maxMessageBufferSize,
+	}
+}
+
 // AcquireMessage returns an empty Message instance from Message pool.
 //
 // The returned Message instance may be passed to ReleaseMessage when it is
 // no longer needed. This allows Message recycling, reduces GC pressure
 // and usually improves performance.
-func AcquireMessage(ctx context.Context) *Message {
-	v := messagePool.Get()
+func (p *Pool) AcquireMessage(ctx context.Context) *Message {
+	v := p.messagePool.Get()
 	if v == nil {
 		return &Message{
 			Message:        pool.NewMessage(),
 			rawData:        make([]byte, 256),
 			rawMarshalData: make([]byte, 256),
 			ctx:            ctx,
+			rawMaxSize:     p.maxMessageBufferSize,
 		}
 	}
+	atomic.AddInt64(&p.currentMessagesInPool, -1)
 	r := v.(*Message)
-	r.Reset()
 	r.ctx = ctx
 	return r
 }
@@ -118,17 +136,23 @@ func AcquireMessage(ctx context.Context) *Message {
 //
 // It is forbidden accessing req and/or its' members after returning
 // it to Message pool.
-func ReleaseMessage(req *Message) {
+func (p *Pool) ReleaseMessage(req *Message) {
+	v := atomic.LoadInt64(&p.currentMessagesInPool)
+	if v >= int64(p.maxNumMessages) {
+		return
+	}
+	atomic.AddInt64(&p.currentMessagesInPool, 1)
 	req.Reset()
-	messagePool.Put(req)
+	req.ctx = nil
+	p.messagePool.Put(req)
 }
 
 // ConvertFrom converts common message to pool message.
-func ConvertFrom(m *message.Message) (*Message, error) {
+func (pool *Pool) ConvertFrom(m *message.Message) (*Message, error) {
 	if m.Context == nil {
 		return nil, fmt.Errorf("invalid context")
 	}
-	r := AcquireMessage(m.Context)
+	r := pool.AcquireMessage(m.Context)
 	r.SetCode(m.Code)
 	r.ResetOptionsTo(m.Options)
 	r.SetBody(m.Body)
